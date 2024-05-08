@@ -1,7 +1,7 @@
 import dsp
 import dspy
 from dspy.signatures.signature import ensure_signature
-
+from dspy.utils import logger
 from ..primitives.program import Module
 from .predict import Predict
 
@@ -27,6 +27,8 @@ class ReAct(Module):
 
         inputs_ = ", ".join([f"`{k}`" for k in self.input_fields.keys()])
         outputs_ = ", ".join([f"`{k}`" for k in self.output_fields.keys()])
+
+        logger.signature_manipulation(f"ReAct adding instructions to turn {inputs_=} into {outputs_=}")
 
         instr = [
             f"You will be given {inputs_} and you will respond with {outputs_}.\n",

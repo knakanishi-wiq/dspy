@@ -1,7 +1,7 @@
 import sys
 import threading
 import types
-
+from ..utils import logger
 import pandas as pd
 import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -52,7 +52,7 @@ class Evaluate:
         self.return_outputs = return_outputs
 
         if "display" in _kwargs:
-            dspy.logger.warning(
+            logger.warning(
                 "DeprecationWarning: 'display' has been deprecated. To see all information for debugging, use 'dspy.set_log_level('debug')'. In the future this will raise an error.",
             )
 
@@ -144,7 +144,7 @@ class Evaluate:
                 if current_error_count >= self.max_errors:
                     raise e
 
-                dspy.logger.error(f"Error for example in dev set: \t\t {e}")
+                logger.error(f"Error for example in dev set: \t\t {e}")
 
                 return example_idx, example, {}, 0.0
             finally:
@@ -164,7 +164,7 @@ class Evaluate:
                 display_progress,
             )
 
-        dspy.logger.info(f"Average Metric: {ncorrect} / {ntotal} ({round(100 * ncorrect / ntotal, 1)}%)")
+        logger.info(f"Average Metric: {ncorrect} / {ntotal} ({round(100 * ncorrect / ntotal, 1)}%)")
 
         predicted_devset = sorted(reordered_devset)
 

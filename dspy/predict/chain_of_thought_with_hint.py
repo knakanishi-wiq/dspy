@@ -1,6 +1,6 @@
 import dsp
 import dspy
-
+from dspy.utils import logger
 from .predict import Predict
 
 # TODO: FIXME: Insert this right before the *first* output field. Also rewrite this to use the new signature system.
@@ -16,6 +16,7 @@ class ChainOfThoughtWithHint(Predict):
             prefix="Reasoning: Let's think step by step in order to",
             desc="${produce the " + last_key + "}. We ...",
         )
+        logger.signature_manipulation(f"ChainOfThoughtWithHint adding rationale: {rationale_type}")
         self.extended_signature1 = self.signature.insert(-2, "rationale", rationale_type, type_=str)
 
         DEFAULT_HINT_TYPE = dspy.OutputField()
@@ -26,6 +27,7 @@ class ChainOfThoughtWithHint(Predict):
 
         if self.activated is True or (self.activated is None and isinstance(dsp.settings.lm, dsp.GPT3)):
             if 'hint' in kwargs and kwargs['hint']:
+                logger.signature_manipulation(f"ChainOfThoughtWithHint adding hint: {kwargs['hint']}")
                 signature = self.extended_signature2
             else:
                 signature = self.extended_signature1

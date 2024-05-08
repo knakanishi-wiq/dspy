@@ -2,7 +2,7 @@ import re
 
 import dspy
 from dspy.signatures.signature import ensure_signature
-
+from dspy.utils import logger
 from ..primitives.program import Module
 from ..primitives.python_interpreter import CodePrompt, PythonInterpreter
 
@@ -100,6 +100,7 @@ class ProgramOfThought(Module):
         return dspy.Signature(signature_dict)
 
     def _generate_instruction(self, mode):
+        logger.signature_manipulation(f"ProgramOfThought - adjusting signature for {mode=}")
         mode_inputs = ", ".join(
             [
                 f"`{field_name}`"

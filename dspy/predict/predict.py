@@ -1,7 +1,7 @@
 import random
 
 from pydantic import BaseModel
-
+from dspy.utils import logger
 import dsp
 from dspy.predict.parameter import Parameter
 from dspy.primitives.prediction import Prediction
@@ -61,6 +61,8 @@ class Predict(Parameter):
         return self.forward(**kwargs)
 
     def forward(self, **kwargs):
+        logger.signature(f"Predict Signature: {self.signature=}")
+        logger.forward(f"Predict Forward: {kwargs=}")
         # Extract the three privileged keyword arguments.
         new_signature = ensure_signature(kwargs.pop("new_signature", None))
         signature = ensure_signature(kwargs.pop("signature", self.signature))

@@ -5,7 +5,7 @@ Author: Jagane Sundar: https://github.com/jagane.
 from typing import Optional, Union
 
 import numpy as np
-
+from ..utils import logger
 import dspy
 from dsp.modules.sentence_vectorizer import SentenceTransformersVectorizer
 from dsp.utils import dotdict
@@ -80,7 +80,7 @@ class FaissRM(dspy.Retrieve):
         embeddings = self._vectorizer(document_chunks)
         xb = np.array(embeddings)
         d = len(xb[0])
-        dspy.logger.info(f"FaissRM: embedding size={d}")
+        logger.info(f"FaissRM: embedding size={d}")
         if len(xb) < 100:
             self._faiss_index = faiss.IndexFlatL2(d)
             self._faiss_index.add(xb)
@@ -92,7 +92,7 @@ class FaissRM(dspy.Retrieve):
             self._faiss_index.train(xb)
             self._faiss_index.add(xb)
 
-        dspy.logger.info(f"{self._faiss_index.ntotal} vectors in faiss index")
+        logger.info(f"{self._faiss_index.ntotal} vectors in faiss index")
         self._document_chunks = document_chunks  # save the input document chunks
 
         super().__init__(k=k)
@@ -101,9 +101,9 @@ class FaissRM(dspy.Retrieve):
         for i in range(len(queries)):
             indices = index_list[i]
             distances = distance_list[i]
-            dspy.logger.debug(f"Query: {queries[i]}")
+            logger.debug(f"Query: {queries[i]}")
             for j in range(len(indices)):
-                dspy.logger.debug(f"    Hit {j} = {indices[j]}/{distances[j]}: {self._document_chunks[indices[j]]}")
+                logger.debug(f"    Hit {j} = {indices[j]}/{distances[j]}: {self._document_chunks[indices[j]]}")
         return
 
     def forward(self, query_or_queries: Union[str, list[str]], k: Optional[int] = None, **kwargs) -> dspy.Prediction:

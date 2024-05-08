@@ -2,11 +2,10 @@ import random
 import threading
 
 import tqdm
-
 import dsp
 import dspy
 from dspy.primitives import Example
-
+from ..utils import logger
 from .teleprompt import Teleprompter
 from .vanilla import LabeledFewShot
 
@@ -51,6 +50,13 @@ class BootstrapFewShot(Teleprompter):
         self.max_errors = max_errors
         self.error_count = 0
         self.error_lock = threading.Lock()
+        # Log all the arguments
+        logger.info(f"BootstrapFewShot Arguments: {locals()}")
+        logger.info(f"BootstrapFewShot: will attempt to sequentially collect {max_bootstrapped_demos} bootstrapped demos, and up to {max_labeled_demos} random labeled demos if I can't bootstrap successfully, across {max_rounds} rounds.")
+        if metric:
+            logger.info(f"BootstrapFewShot: metric {metric} is used to evaluate for bootstrapping success.")
+        else:
+            logger.info(f"BootstrapFewShot: No metric is used to evaluate success, so all generated bootstraps will be considered successful.")
 
     def compile(self, student, *, teacher=None, trainset):
         self.trainset = trainset
@@ -72,11 +78,19 @@ class BootstrapFewShot(Teleprompter):
         self.student = student.reset_copy()
         self.teacher = teacher.deepcopy() if teacher is not None else student.reset_copy()
 
+        logger.info(f"BootstrapFewShot: teacher program has settings {self.teacher_settings}")
+        if getattr(self.teacher, "_compiled", False):
+            logger.info(f"BootstrapFewShot: teacher program is compiled.")
+        else:
+            logger.info(f"BootstrapFewShot: teacher program is not compiled, so LabeledFewShot with k={self.max_labeled_demos} will be compiled and used to evaluate bootstrapping success.")
+
+
         assert getattr(self.student, "_compiled", False) is False, "Student must be uncompiled."
 
         if self.max_labeled_demos and getattr(self.teacher, "_compiled", False) is False:
             teleprompter = LabeledFewShot(k=self.max_labeled_demos)
             self.teacher = teleprompter.compile(self.teacher.reset_copy(), trainset=self.trainset)
+        logger.info(f"BootstrapFewShot: teacher program ready!")
 
     def _prepare_predictor_mappings(self):
         name2predictor, predictor2name = {}, {}
@@ -123,7 +137,7 @@ class BootstrapFewShot(Teleprompter):
                     if success:
                         bootstrapped[example_idx] = True
 
-        dspy.logger.info(
+        logger.info(
             f"Bootstrapped {len(bootstrapped)} full traces after {example_idx + 1} examples in round {round_idx}.",
         )
 
@@ -149,13 +163,14 @@ class BootstrapFewShot(Teleprompter):
                 lm = lm.copy(temperature=0.7 + 0.001 * round_idx) if round_idx > 0 else lm
                 new_settings = dict(lm=lm) if round_idx > 0 else {}
 
-                with dsp.settings.context(**new_settings):
-                    for name, predictor in teacher.named_predictors():
-                        predictor_cache[name] = predictor.demos
-                        predictor.demos = [x for x in predictor.demos if x != example]
+                with dsp.settings.context(**new_settings): # Manipulate settings for new rounds to ensure we're not just using cached results
+                    logger.info(teacher.named_predictors())
+                    for name, predictor in teacher.named_predictors(): # For each Module(Signature) in the teacher program
+                        predictor_cache[name] = predictor.demos # Get the demos, cache them
+                        predictor.demos = [x for x in predictor.demos if x != example] # Filter out the example from the demos, so we're not leaking data
 
-                    prediction = teacher(**example.inputs())
-                    trace = dsp.settings.trace
+                    prediction = teacher(**example.inputs()) # Get the output of the teacher program
+                    trace = dsp.settings.trace # Collect the trace
 
                     for name, predictor in teacher.named_predictors():
                         predictor.demos = predictor_cache[name]
@@ -164,8 +179,10 @@ class BootstrapFewShot(Teleprompter):
                     metric_val = self.metric(example, prediction, trace)
                     if self.metric_threshold:
                         success = metric_val >= self.metric_threshold
+                        logger.optimizer(f"BootstrapFewShot bootstrapping example {success=} since: {metric_val=} >= {self.metric_threshold=}")
                     else:
                         success = metric_val
+                        logger.optimizer(f"BootstrapFewShot bootstrapping example {success=} since: {metric_val=}")
                 else:
                     success = True
         except Exception as e:
@@ -175,10 +192,11 @@ class BootstrapFewShot(Teleprompter):
                 current_error_count = self.error_count
             if current_error_count >= self.max_errors:
                 raise e
-            dspy.logger.error(f"Failed to run or to evaluate example {example} with {self.metric} due to {e}.")
+            logger.error(f"Failed to run or to evaluate example {example} with {self.metric} due to {e}.")
 
         if success:
             for step in trace:
+                logger.error(step)
                 predictor, inputs, outputs = step
 
                 if "dspy_uuid" in example:
@@ -201,7 +219,7 @@ class BootstrapFewShot(Teleprompter):
                     # raise KeyError(
                     #     f"Failed to find predictor {id(predictor)} {predictor} in {self.predictor2name}.",
                     # ) from e
-
+                logger.optimizer(f"BootstrapFewShot bootstrapping one successful example: {demo}")
                 name2traces[predictor_name].append(demo)
 
         return success

@@ -1,7 +1,7 @@
 import dsp
 import dspy
 from dspy.signatures.signature import ensure_signature
-
+from dspy.utils import logger
 from .predict import Predict
 
 # TODO: FIXME: Insert this right before the *first* output field. Also rewrite this to use the new signature system.
@@ -41,10 +41,11 @@ class ChainOfThought(Predict):
             prefix="Reasoning: Let's think step by step in order to",
             desc="${produce the " + last_key + "}. We ...",
         )
-
+        logger.signature_manipulation(f"ChainOfThought adding rationale {rationale_type=}")
         self.extended_signature = signature.prepend("rationale", rationale_type, type_=str)
 
     def forward(self, **kwargs):
+        logger.forward(f"ChainOfThought Forward: {kwargs=}")
         new_signature = kwargs.pop("new_signature", None)
         if new_signature is None:
             if self.activated is True or (

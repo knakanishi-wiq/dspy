@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-
+from loguru import logger
 
 class LM(ABC):
     """Abstract class for language models."""
@@ -30,6 +30,39 @@ class LM(ABC):
 
     def print_red(self, text: str, end: str = "\n"):
         return "\x1b[31m" + str(text) + "\x1b[0m" + end
+
+    def inspect_responses(self, n: int = 1, skip: int = 0):
+        """Prints the last n prompts and their completions.
+
+        TODO: print the valid choice that contains filled output field instead of the first.
+        """
+        provider: str = self.provider
+
+        last_prompt = None
+        printed = []
+        n = n + skip
+
+        for x in reversed(self.history[-100:]):
+            prompt = x["prompt"]
+
+            if prompt != last_prompt:
+                if provider == "clarifai" or provider == "google" or provider == "groq" or provider == "Bedrock" or provider == "Sagemaker":
+                    printed.append((prompt, x["response"]))
+                elif provider == "anthropic":
+                    blocks = [{"text": block.text} for block in x["response"].content if block.type == "text"]
+                    printed.append((prompt, blocks))
+                elif provider == "cohere":
+                    printed.append((prompt, x["response"].text))
+                elif provider == "mistral":
+                    printed.append((prompt, x['response'].choices))
+                else:
+                    printed.append((prompt, x["response"]["choices"]))
+
+            last_prompt = prompt
+
+            if len(printed) >= n:
+                break
+        return printed
 
     def inspect_history(self, n: int = 1, skip: int = 0):
         """Prints the last n prompts and their completions.
@@ -76,24 +109,26 @@ class LM(ABC):
                 text = choices
             elif provider == "openai" or provider == "ollama":
                 text = ' ' + self._get_choice_text(choices[0]).strip()
-            elif provider == "clarifai" or provider == "claude":
-                text = choices
+            elif provider == "clarifai" or provider == "claude" :
+                text=choices
             elif provider == "groq":
                 text = ' ' + choices
             elif provider == "google":
                 text = choices[0].parts[0].text
+            elif provider == "googlevertexai":
+                # Guarantee a space between prompt and answer, agnostic to text-bison or gemini use.
+                text = choices[0]["text"] if choices[0]["text"].startswith(" ") else " " + choices[0]["text"]
             elif provider == "mistral":
                 text = choices[0].message.content
             else:
                 text = choices[0]["text"]
             printing_value += self.print_green(text, end="")
 
-            if len(choices) > 1 and isinstance(choices, list):
+            if len(choices) > 1:
                 printing_value += self.print_red(f" \t (and {len(choices)-1} other completions)", end="")
 
             printing_value += "\n\n\n"
 
-        print(printing_value)
         return printing_value
 
     @abstractmethod

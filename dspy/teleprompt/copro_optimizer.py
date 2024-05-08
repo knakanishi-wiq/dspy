@@ -5,7 +5,7 @@ import dspy
 from dspy.evaluate.evaluate import Evaluate
 from dspy.signatures import Signature
 from dspy.teleprompt.teleprompt import Teleprompter
-
+from ..utils import logger
 """
 USAGE SUGGESTIONS:
 
@@ -75,7 +75,7 @@ class COPRO(Teleprompter):
         self.track_stats = track_stats
 
         if "verbose" in _kwargs:
-            dspy.logger.warning("DeprecationWarning: 'verbose' has been deprecated. To see all information for debugging, use 'dspy.set_log_level('debug')'. In the future this will raise an error.")
+            logger.warning("DeprecationWarning: 'verbose' has been deprecated. To see all information for debugging, use 'dspy.set_log_level('debug')'. In the future this will raise an error.")
 
     def _check_candidates_equal(self, candidate1, candidate2):
         for p1, p2 in zip(candidate1["program"].predictors(), candidate2["program"].predictors()):
@@ -110,8 +110,8 @@ class COPRO(Teleprompter):
     def _print_signature(self, predictor):
         signature = self._get_signature(predictor)
 
-        dspy.logger.debug(f"i: {signature.instructions}")
-        dspy.logger.debug(f"p: {list(signature.fields.values())[-1].json_schema_extra['prefix']}")
+        logger.debug(f"i: {signature.instructions}")
+        logger.debug(f"p: {list(signature.fields.values())[-1].json_schema_extra['prefix']}")
 
     def _get_signature(self, predictor):
         if hasattr(predictor, "extended_signature"):
@@ -170,7 +170,7 @@ class COPRO(Teleprompter):
             evaluated_candidates[id(predictor)] = {}
 
         if self.prompt_model:
-            dspy.logger.debug(f"{self.prompt_model.inspect_history(n=1)}")
+            logger.debug(f"{self.prompt_model.inspect_history(n=1)}")
 
         latest_candidates = candidates
         all_candidates = candidates
@@ -181,7 +181,7 @@ class COPRO(Teleprompter):
         for d in range(
             self.depth,
         ):  # TODO: fix this so that we eval the new batch of predictors with the new best followoing predictors
-            dspy.logger.info(f"Iteration Depth: {d+1}/{self.depth}.")
+            logger.info(f"Iteration Depth: {d+1}/{self.depth}.")
 
             latest_scores = []
 
@@ -212,18 +212,18 @@ class COPRO(Teleprompter):
 
                     # Score the instruction / prefix
                     for i, predictor in enumerate(module_clone.predictors()):
-                        dspy.logger.debug(f"Predictor {i+1}")
+                        logger.debug(f"Predictor {i+1}")
                         self._print_signature(predictor)
-                    dspy.logger.info(
+                    logger.info(
                         f"At Depth {d+1}/{self.depth}, Evaluating Prompt Candidate #{c_i+1}/{len(candidates_)} for Predictor {p_i+1} of {len(module.predictors())}.",
                     )
                     score = evaluate(module_clone, devset=trainset, **eval_kwargs)
                     if self.prompt_model:
-                        dspy.logger.debug(f"prompt_model.inspect_history(n=1) {self.prompt_model.inspect_history(n=1)}")
+                        logger.debug(f"prompt_model.inspect_history(n=1) {self.prompt_model.inspect_history(n=1)}")
                     total_calls += 1
 
                     replace_entry = True
-                    dspy.logger.debug(f"(instruction, prefix) {(instruction, prefix)}")
+                    logger.debug(f"(instruction, prefix) {(instruction, prefix)}")
                     if (instruction, prefix) in evaluated_candidates[id(p_old)]:
                         if evaluated_candidates[id(p_old)][(instruction, prefix)]["score"] >= score:
                             replace_entry = False
@@ -259,12 +259,12 @@ class COPRO(Teleprompter):
                 )
                 self._set_signature(p_new, updated_signature)
 
-                dspy.logger.debug(
+                logger.debug(
                     f"Updating Predictor {id(p_old)} to:\ni: {best_candidate['instruction']}\np: {best_candidate['prefix']}",
                 )
-                dspy.logger.debug("Full predictor with update: ")
+                logger.debug("Full predictor with update: ")
                 for i, predictor in enumerate(module_clone.predictors()):
-                    dspy.logger.debug(f"Predictor {i}")
+                    logger.debug(f"Predictor {i}")
                     self._print_signature(predictor)
 
             if d == self.depth - 1:
@@ -311,7 +311,7 @@ class COPRO(Teleprompter):
                     )(attempted_instructions=attempts)
 
                 if self.prompt_model:
-                    dspy.logger.debug(f"(self.prompt_model.inspect_history(n=1)) {self.prompt_model.inspect_history(n=1)}")
+                    logger.debug(f"(self.prompt_model.inspect_history(n=1)) {self.prompt_model.inspect_history(n=1)}")
                 # Get candidates for each predictor
                 new_candidates[id(p_base)] = instr.completions
                 all_candidates[id(p_base)].proposed_instruction.extend(instr.completions.proposed_instruction)
@@ -320,7 +320,7 @@ class COPRO(Teleprompter):
                 )
 
             if self.prompt_model:
-                dspy.logger.debug(f"{self.prompt_model.inspect_history(n=1)}")
+                logger.debug(f"{self.prompt_model.inspect_history(n=1)}")
             latest_candidates = new_candidates
 
         candidates = []

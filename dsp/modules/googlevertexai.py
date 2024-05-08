@@ -3,8 +3,7 @@ from typing import Any, Dict
 
 import backoff
 from pydantic_core import PydanticCustomError
-
-from dsp.modules.lm import LM
+from .lm import LM
 
 try:
     import vertexai  # type: ignore[import-untyped]
@@ -99,6 +98,8 @@ class GoogleVertexAI(LM):
             "top_k": 1,
             **kwargs,
         }
+        from dspy.utils import logger
+        logger.info(f"Using provider {self.provider}, model {model} with {kwargs=}")
 
     @classmethod
     def _init_vertexai(cls, values: Dict) -> None:
@@ -120,6 +121,8 @@ class GoogleVertexAI(LM):
         return {k: params[k] for k in set(params.keys()) & self.available_args}
 
     def basic_request(self, prompt: str, **kwargs):
+        from dspy.utils import logger
+        logger.llm_call(f"LLM call - {prompt=}")
         raw_kwargs = kwargs
         kwargs = self._prepare_params(raw_kwargs)
         if self._is_gemini:
@@ -153,6 +156,8 @@ class GoogleVertexAI(LM):
                 "raw_kwargs": raw_kwargs,
             }
         self.history.append(history)
+
+        logger.llm_response(f"LLM response - {[i['text'] for i in history['response']['choices']]}")
 
         return [i['text'] for i in history['response']['choices']]
 

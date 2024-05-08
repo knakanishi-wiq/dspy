@@ -1,6 +1,6 @@
 import dspy
 from dspy.signatures.signature import ensure_signature
-
+from dspy.utils import logger
 from ..primitives.program import Module
 from .predict import Predict
 
@@ -13,7 +13,7 @@ class MultiChainComparison(Module):
         signature = ensure_signature(signature)
 
         *_, self.last_key = signature.output_fields.keys()
-
+        logger.signature_manipulation(f"MultiChainComparison Signature: adding reasoning attempts and rationale")
         for idx in range(M):
             signature = signature.append(
                 f"reasoning_attempt_{idx+1}",

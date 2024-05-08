@@ -4,7 +4,6 @@ import types
 import typing
 from copy import deepcopy
 from typing import Any, Dict, Tuple, Type, Union  # noqa: UP035
-
 from pydantic import BaseModel, Field, create_model
 from pydantic.fields import FieldInfo
 
